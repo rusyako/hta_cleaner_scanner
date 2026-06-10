@@ -27,21 +27,20 @@ jobs:
         with:
           node-version: 20
 
-      - name: Debug
-        run: |
-          node --version
-          npm --version
-          ls -la frontend/
-          ls -la frontend/package.json
-
       - name: Install dependencies
-        run: cd frontend && npm install
+        run: |
+          cd frontend
+          npm install --ignore-scripts --no-audit --no-fund 2>&1
+          echo "EXIT_CODE=$?"
 
       - name: Build static site
         env:
           GITHUB_PAGES: 'true'
           NEXT_PUBLIC_API_URL: ${{ secrets.NEXT_PUBLIC_API_URL }}
-        run: cd frontend && npm run build
+        run: |
+          cd frontend
+          npm run build 2>&1
+          echo "BUILD_EXIT=$?"
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
