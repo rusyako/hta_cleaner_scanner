@@ -8,10 +8,12 @@ services:
     environment:
       API_HOST: 0.0.0.0
       API_PORT: 8000
-      FRONTEND_APP_URL: https://${LAN_HOST:-192.168.20.233}:2000
-      CORS_ORIGINS: '["https://localhost:2000", "https://127.0.0.1:2000", "https://${LAN_HOST:-192.168.20.233}:2000", "http://localhost:2000", "http://127.0.0.1:2000", "http://${LAN_HOST:-192.168.20.233}:2000"]'
+      FRONTEND_APP_URL: https://${LAN_HOST:-192.168.20.50}:2000
+      CORS_ORIGINS: '["https://localhost:2000", "https://127.0.0.1:2000", "https://${LAN_HOST:-192.168.20.50}:2000", "http://localhost:2000", "http://127.0.0.1:2000", "http://${LAN_HOST:-192.168.20.50}:2000", "https://rusyako.github.io"]'
       ADMIN_USERNAME: admin
       ADMIN_PASSWORD: admin
+    volumes:
+      - ./certs:/app/certs:ro
     restart: unless-stopped
 
   frontend:
@@ -20,7 +22,7 @@ services:
       args:
         NEXT_PUBLIC_API_URL: /api
         INTERNAL_API_URL: http://backend:8000
-        NEXT_PUBLIC_APP_URL: https://${LAN_HOST:-192.168.20.233}:2000
+        NEXT_PUBLIC_APP_URL: https://${LAN_HOST:-192.168.20.50}:2000
     container_name: hta-frontend
     depends_on:
       - backend

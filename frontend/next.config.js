@@ -1,9 +1,20 @@
+const isGitHubPages = process.env.GITHUB_PAGES === 'true';
+const basePath = isGitHubPages ? '/hta_cleaner_scanner' : '';
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
     reactStrictMode: true,
+    output: isGitHubPages ? 'export' : undefined,
+    basePath,
+    assetPrefix: basePath,
+    trailingSlash: isGitHubPages,
+    env: {
+        NEXT_PUBLIC_BASE_PATH: basePath,
+    },
 
     // Настройки изображений
     images: {
+        unoptimized: isGitHubPages,
         remotePatterns: [
             {
                 protocol: 'http',
@@ -17,15 +28,19 @@ const nextConfig = {
         formats: ['image/avif', 'image/webp'],
     },
 
-    // Настройки для API прокси
-    async rewrites() {
-        return [
-            {
-                source: '/api/:path*',
-                destination: `${process.env.INTERNAL_API_URL || 'http://backend:8000'}/api/:path*`,
-            },
-        ];
-    },
+    ...(isGitHubPages
+        ? {}
+        : {
+              // Настройки для API прокси
+              async rewrites() {
+                  return [
+                      {
+                          source: '/api/:path*',
+                          destination: `${process.env.INTERNAL_API_URL || 'http://backend:8000'}/api/:path*`,
+                      },
+                  ];
+              },
+          }),
 
     productionBrowserSourceMaps: false,
 };

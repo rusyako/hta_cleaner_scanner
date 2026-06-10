@@ -12,7 +12,7 @@
 При необходимости укажите LAN IP хоста, который уже добавлен в сертификат:
 
 ```bash
-set LAN_HOST=192.168.20.233
+set LAN_HOST=192.168.20.50
 docker compose up --build
 ```
 
@@ -29,7 +29,7 @@ docker compose up --build
 - Healthcheck backend: `http://localhost:8000/api/health`
 - Frontend по LAN: `https://<LAN_HOST>:2000`
 
-Текущий адрес хоста в этой сети: `https://192.168.20.233:2000`
+Текущий адрес хоста в этой сети: `https://192.168.20.50:2000`
 
 ## HTTPS
 

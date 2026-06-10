@@ -39,9 +39,17 @@ if (!keyPath || !certPath) {
     );
 }
 
+const caPath = resolveFirstExistingPath(
+    certDirCandidates.flatMap((dir) => [
+        path.join(dir, 'hta-root-ca.pem'),
+        path.join(dir, 'hta-root-ca.crt'),
+    ]),
+);
+
 const httpsOptions = {
     key: fs.readFileSync(keyPath),
     cert: fs.readFileSync(certPath),
+    ca: caPath ? [fs.readFileSync(caPath)] : undefined,
 };
 
 const app = next({ dev, hostname, port });

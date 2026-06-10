@@ -1,6 +1,6 @@
 from fastapi import FastAPI, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import RedirectResponse
+from fastapi.responses import RedirectResponse, FileResponse
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from pydantic import BaseModel
 from typing import List, Optional
@@ -21,7 +21,7 @@ app = FastAPI(title="HTA Cleaner Admin API", version="1.0.0")
 def get_cors_origins() -> list[str]:
     raw_origins = os.getenv(
         "CORS_ORIGINS",
-        '["https://localhost:2000", "https://127.0.0.1:2000", "https://192.168.20.233:2000", "http://localhost:2000", "http://127.0.0.1:2000", "http://192.168.20.233:2000"]',
+        '["https://localhost:2000", "https://127.0.0.1:2000", "https://192.168.20.50:2000", "http://localhost:2000", "http://127.0.0.1:2000", "http://192.168.20.50:2000", "https://rusyako.github.io"]',
     )
 
     try:
@@ -109,6 +109,15 @@ class CreateReportRequest(BaseModel):
 def read_root():
     frontend_app_url = os.getenv("FRONTEND_APP_URL", "https://localhost:2000")
     return RedirectResponse(url=frontend_app_url, status_code=307)
+
+@app.get("/api/cert")
+def download_cert():
+    cert_path = "/app/certs/hta-root-ca.crt"
+    if not os.path.exists(cert_path):
+        cert_path = "/app/certs/hta-root-ca.pem"
+    if not os.path.exists(cert_path):
+        raise HTTPException(status_code=404, detail="Certificate not found")
+    return FileResponse(cert_path, media_type="application/x-x509-ca-cert", filename="HTA_Root_CA.crt")
 
 @app.get("/api/health")
 def health_check():

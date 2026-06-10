@@ -2,7 +2,7 @@
 $rootPath = Split-Path -Parent $MyInvocation.MyCommand.Path
 $certPath = Join-Path $rootPath "certs"
 $convertScript = Join-Path $rootPath "frontend\convert-cert.js"
-$lanIp = "192.168.20.233"
+$lanIp = "192.168.20.50"
 
 if (-not (Test-Path -LiteralPath $certPath)) {
     New-Item -ItemType Directory -Path $certPath | Out-Null
