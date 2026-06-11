@@ -40,10 +40,6 @@ export default function ScanPage() {
             router.push('/login');
             return;
         }
-
-        if (user.role !== 'cleaner') {
-            router.push('/admin');
-        }
     }, [router, user, isAuthLoading]);
 
     useEffect(() => {

@@ -5,7 +5,9 @@ import { toast } from '@/components/ui';
 interface User {
     username: string;
     full_name: string;
-    role: 'admin' | 'cleaner';
+    role: 'admin' | 'manager' | 'cleaner';
+    manager_id: string | null;
+    tabs: string[];
 }
 
 interface LoginRequest {
@@ -28,7 +30,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const [user, setUser] = useState<User | null>(null);
     const [isLoading, setIsLoading] = useState(true);
 
-    // Проверка авторизации при загрузке
     useEffect(() => {
         checkAuth();
     }, []);
@@ -38,13 +39,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             setIsLoading(false);
             return;
         }
-
         try {
             const userInfo = await apiService.getCurrentUser();
             setUser({
                 username: userInfo.username,
                 full_name: userInfo.full_name,
                 role: userInfo.role,
+                manager_id: userInfo.manager_id ?? null,
+                tabs: userInfo.tabs ?? [],
             });
         } catch (error) {
             console.error('Auth check failed:', error);
@@ -63,6 +65,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 username: userInfo.username,
                 full_name: userInfo.full_name,
                 role: userInfo.role,
+                manager_id: userInfo.manager_id ?? null,
+                tabs: userInfo.tabs ?? [],
             });
             toast.success(`Добро пожаловать, ${userInfo.username}!`);
         } catch (error: any) {
@@ -87,14 +91,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
 
     return (
-        <AuthContext.Provider 
-            value={{ 
-                user, 
-                isLoading, 
+        <AuthContext.Provider
+            value={{
+                user,
+                isLoading,
                 isAuthenticated: !!user,
-                login, 
+                login,
                 logout,
-                checkAuth
+                checkAuth,
             }}
         >
             {children}

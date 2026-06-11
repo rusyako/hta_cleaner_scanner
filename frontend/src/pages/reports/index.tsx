@@ -49,7 +49,7 @@ export default function ReportsPage() {
             return;
         }
 
-        if (user.role !== 'admin') {
+        if (user.role !== 'admin' && user.role !== 'manager') {
             router.push('/cleaner');
             return;
         }

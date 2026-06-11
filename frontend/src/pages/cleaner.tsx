@@ -28,7 +28,7 @@ export default function CleanerPage() {
         }
 
         if (user.role !== 'cleaner') {
-            router.push('/admin');
+            router.push(user.role === 'manager' ? '/manager' : '/admin');
             return;
         }
 

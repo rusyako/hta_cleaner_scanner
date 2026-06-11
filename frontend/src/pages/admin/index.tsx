@@ -44,7 +44,7 @@ export default function AdminDashboard() {
         }
 
         if (user.role !== 'admin') {
-            router.push('/cleaner');
+            router.push(user.role === 'manager' ? '/manager' : '/cleaner');
             return;
         }
 

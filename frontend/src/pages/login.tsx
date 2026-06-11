@@ -34,7 +34,12 @@ export default function LoginPage() {
         }
 
         if (user) {
-            router.push(user.role === 'cleaner' ? '/cleaner' : '/admin');
+            const routeMap: Record<string, string> = {
+                admin: '/admin',
+                manager: '/manager',
+                cleaner: '/cleaner',
+            };
+            router.push(routeMap[user.role] ?? '/admin');
         }
     }, [router, user, isAuthLoading]);
 
@@ -111,6 +116,9 @@ export default function LoginPage() {
                             <div className="space-y-2 text-xs">
                                 <div className="bg-gray-50 dark:bg-gray-800 p-2 rounded">
                                     <strong>Администратор:</strong> admin / admin
+                                </div>
+                                <div className="bg-gray-50 dark:bg-gray-800 p-2 rounded">
+                                    <strong>Руководитель:</strong> manager / manager
                                 </div>
                                 <div className="bg-gray-50 dark:bg-gray-800 p-2 rounded">
                                     <strong>Клинер:</strong> cleaner / cleaner

@@ -18,7 +18,12 @@ export default function Dashboard() {
             return;
         }
 
-        router.push(user.role === 'cleaner' ? '/cleaner' : '/admin');
+        const routeMap: Record<string, string> = {
+            admin: '/admin',
+            manager: '/manager',
+            cleaner: '/cleaner',
+        };
+        router.push(routeMap[user.role] ?? '/admin');
     }, [router, user, isLoading]);
 
     return (
