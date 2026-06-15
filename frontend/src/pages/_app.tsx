@@ -25,7 +25,7 @@ function registerServiceWorker() {
     if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
         window.addEventListener('load', () => {
             navigator.serviceWorker
-                .register(`${basePath}/sw.js`, { scope: `${basePath || '/'}` })
+                .register(`${basePath}/sw.js`, { scope: `${basePath}/` })
                 .then((registration) => {
                     console.log('SW registered:', registration.scope);
                 })

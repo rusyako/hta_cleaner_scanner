@@ -3,7 +3,7 @@
   "short_name": "HTA Cleaner",
   "description": "Система управления уборкой кабинетов",
   "start_url": ".",
-  "scope": ".",
+  "scope": "./",
   "display": "standalone",
   "orientation": "portrait-primary",
   "background_color": "#ffffff",
