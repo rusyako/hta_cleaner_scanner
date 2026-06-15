@@ -1,4 +1,22 @@
 services:
+  db:
+    image: postgres:16-alpine
+    container_name: hta-db
+    environment:
+      POSTGRES_DB: hta_cleaner
+      POSTGRES_USER: hta
+      POSTGRES_PASSWORD: hta_secret_2026
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U hta -d hta_cleaner"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
   backend:
     build:
       context: ./backend
@@ -8,12 +26,14 @@ services:
     environment:
       API_HOST: 0.0.0.0
       API_PORT: 8000
+      DATABASE_URL: postgresql://hta:hta_secret_2026@db:5432/hta_cleaner
       FRONTEND_APP_URL: https://${LAN_HOST:-192.168.20.50}:2000
       CORS_ORIGINS: '["https://localhost:2000", "https://127.0.0.1:2000", "https://${LAN_HOST:-192.168.20.50}:2000", "http://localhost:2000", "http://127.0.0.1:2000", "http://${LAN_HOST:-192.168.20.50}:2000", "https://rusyako.github.io"]'
       ADMIN_USERNAME: admin
       ADMIN_PASSWORD: admin
-    volumes:
-      - ./certs:/app/certs:ro
+    depends_on:
+      db:
+        condition: service_healthy
     restart: unless-stopped
 
   frontend:
@@ -34,3 +54,6 @@ services:
     volumes:
       - ./certs:/app/certs:ro
     restart: unless-stopped
+
+volumes:
+  pgdata:

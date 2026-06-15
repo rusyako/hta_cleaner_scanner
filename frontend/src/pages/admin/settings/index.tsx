@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { MainLayout } from '@/components/layout/MainLayout';
-import { Card, CardHeader, CardTitle, CardContent, Button, Badge, Spinner, Alert } from '@/components/ui';
+import { Card, CardHeader, CardTitle, CardContent, Button, Badge, Spinner, Alert, Input } from '@/components/ui';
 import { apiService, SettingsData } from '@/services/api.service';
 import { useRouter } from 'next/router';
 import { useAuth } from '@/contexts/AuthContext';
@@ -131,6 +131,47 @@ export default function SettingsPage() {
                     </Card>
                 ))}
             </div>
+
+            <PasswordChangeCard />
+
         </MainLayout>
+    );
+}
+
+function PasswordChangeCard() {
+    const [oldPw, setOldPw] = useState('');
+    const [newPw, setNewPw] = useState('');
+    const [msg, setMsg] = useState('');
+    const [saving, setSaving] = useState(false);
+
+    const handleChange = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!oldPw || !newPw) return;
+        setSaving(true);
+        setMsg('');
+        try {
+            await apiService.changePassword(oldPw, newPw);
+            setMsg('Пароль изменен');
+            setOldPw('');
+            setNewPw('');
+        } catch (err: any) {
+            setMsg(err.response?.data?.detail || 'Ошибка');
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    return (
+        <Card>
+            <CardHeader><CardTitle>Смена пароля</CardTitle></CardHeader>
+            <CardContent>
+                <form onSubmit={handleChange} className="space-y-3 max-w-sm">
+                    <Input type="password" placeholder="Текущий пароль" value={oldPw} onChange={(e) => setOldPw(e.target.value)} />
+                    <Input type="password" placeholder="Новый пароль" value={newPw} onChange={(e) => setNewPw(e.target.value)} />
+                    {msg && <Alert variant={msg === 'Пароль изменен' ? 'success' : 'error'}>{msg}</Alert>}
+                    <Button type="submit" disabled={saving}>{saving ? '...' : 'Сменить пароль'}</Button>
+                </form>
+            </CardContent>
+        </Card>
     );
 }

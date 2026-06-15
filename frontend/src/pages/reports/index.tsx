@@ -21,7 +21,7 @@ import {
     Spinner,
     Alert,
 } from '@/components/ui';
-import { MagnifyingGlassIcon, PhotoIcon } from '@heroicons/react/24/outline';
+import { MagnifyingGlassIcon, PhotoIcon, ArrowDownTrayIcon, PencilIcon, TrashIcon } from '@heroicons/react/24/outline';
 import { apiService, Report } from '@/services/api.service';
 import { useRouter } from 'next/router';
 import { useAuth } from '@/contexts/AuthContext';
@@ -37,6 +37,8 @@ export default function ReportsPage() {
     const [selectedReport, setSelectedReport] = useState<Report | null>(null);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [selectedPhoto, setSelectedPhoto] = useState<string | null>(null);
+    const [editingReport, setEditingReport] = useState<Report | null>(null);
+    const [editChecklist, setEditChecklist] = useState('');
     const itemsPerPage = 10;
 
     useEffect(() => {
@@ -117,9 +119,12 @@ export default function ReportsPage() {
                             Просмотр отчетов клинеров
                         </p>
                     </div>
-                    <Button onClick={loadReports}>
-                        Обновить
-                    </Button>
+                    <div className="flex gap-2">
+                        <Button variant="outline" onClick={() => { window.open(`${process.env.NEXT_PUBLIC_API_URL || '/api'}/reports/export/csv`, '_blank'); }}>
+                            <ArrowDownTrayIcon className="h-4 w-4 mr-1" />Экспорт CSV
+                        </Button>
+                        <Button onClick={loadReports}>Обновить</Button>
+                    </div>
                 </div>
 
                 <Card>
@@ -193,13 +198,28 @@ export default function ReportsPage() {
                                             ) : '-'}
                                         </TableCell>
                                         <TableCell>
-                                            <Button
-                                                size="sm"
-                                                variant="outline"
-                                                onClick={() => handleViewReport(report)}
-                                            >
-                                                Просмотр
-                                            </Button>
+                                            <div className="flex gap-1">
+                                            <Button size="sm" variant="outline" onClick={() => handleViewReport(report)}>Просмотр</Button>
+                                            {user?.role === 'admin' && (
+                                                <>
+                                                <Button size="sm" variant="ghost" onClick={() => { setEditingReport(report); setEditChecklist(report.checklist || ''); }}>
+                                                    <PencilIcon className="h-4 w-4" />
+                                                </Button>
+                                                <Button size="sm" variant="ghost" onClick={async () => {
+                                                    if (confirm('Удалить отчёт?')) {
+                                                        try {
+                                                            await apiService.deleteReport(report.id);
+                                                            loadReports();
+                                                        } catch (err: any) {
+                                                            alert(err.response?.data?.detail || 'Ошибка');
+                                                        }
+                                                    }
+                                                }}>
+                                                    <TrashIcon className="h-4 w-4 text-red-500" />
+                                                </Button>
+                                                </>
+                                            )}
+                                            </div>
                                         </TableCell>
                                     </TableRow>
                                 ))}

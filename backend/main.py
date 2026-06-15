@@ -1,22 +1,20 @@
-from fastapi import FastAPI, HTTPException, Depends
+from fastapi import FastAPI, HTTPException, Depends, Query
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import RedirectResponse, FileResponse
+from fastapi.responses import RedirectResponse, PlainTextResponse
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from pydantic import BaseModel
-from typing import List, Optional, Dict, Any
+from typing import List, Optional
 from datetime import datetime
 import os
 import json
 from dotenv import load_dotenv
 import secrets
-from functools import lru_cache
-from copy import deepcopy
 
-from app.services.report_data import ReportDataService
+from app.services.db_service import DatabaseService
 
 load_dotenv()
 
-app = FastAPI(title="HTA Cleaner Admin API", version="2.0.0")
+app = FastAPI(title="HTA Cleaner Admin API", version="3.0.0")
 
 
 def get_cors_origins() -> list[str]:
@@ -43,70 +41,19 @@ app.add_middleware(
 
 security = HTTPBasic()
 
-# --- Users ---
-
-USERS: Dict[str, Dict[str, Any]] = {
-    "admin": {
-        "password": os.getenv("ADMIN_PASSWORD", "admin"),
-        "role": "admin",
-        "full_name": "Администратор",
-        "manager_id": None,
-    },
-    "manager": {
-        "password": os.getenv("MANAGER_PASSWORD", "manager"),
-        "role": "manager",
-        "full_name": "Руководитель",
-        "manager_id": "mgr_1",
-    },
-    "cleaner": {
-        "password": os.getenv("CLEANER_PASSWORD", "cleaner"),
-        "role": "cleaner",
-        "full_name": "Клинер",
-        "manager_id": "mgr_1",
-    },
-}
-
-DEFAULT_TABS: Dict[str, List[str]] = {
-    "admin":   ["dashboard", "cabinets", "reports", "qr-generator", "managers", "users", "settings"],
-    "manager": ["dashboard", "cabinets", "reports", "qr-generator"],
-    "cleaner": ["scan", "my-reports"],
-}
-
-USER_TABS: Dict[str, List[str]] = {}
-
-TAB_LABELS: Dict[str, Dict[str, str]] = {
-    "dashboard":    {"ru": "Дашборд",        "en": "Dashboard"},
-    "cabinets":     {"ru": "Кабинеты",       "en": "Cabinets"},
-    "reports":      {"ru": "Отчеты",         "en": "Reports"},
-    "qr-generator": {"ru": "QR-коды",        "en": "QR Codes"},
-    "managers":     {"ru": "Руководители",   "en": "Managers"},
-    "users":        {"ru": "Пользователи",   "en": "Users"},
-    "settings":     {"ru": "Настройки",      "en": "Settings"},
-    "scan":         {"ru": "Скан",           "en": "Scan"},
-    "my-reports":   {"ru": "Мои отчеты",     "en": "My Reports"},
-}
+db_service = DatabaseService()
 
 
-def get_user_tabs(username: str) -> List[str]:
-    if username in USER_TABS:
-        return USER_TABS[username]
-    role = USERS[username]["role"]
-    return deepcopy(DEFAULT_TABS.get(role, []))
+@app.on_event("startup")
+def startup():
+    db_service.init_db()
 
 
 def verify_credentials(credentials: HTTPBasicCredentials = Depends(security)):
-    user = USERS.get(credentials.username)
+    user = db_service.authenticate(credentials.username, credentials.password)
     if not user:
         raise HTTPException(status_code=401, detail="Неверные учетные данные")
-    correct_password = secrets.compare_digest(credentials.password, user["password"])
-    if not correct_password:
-        raise HTTPException(status_code=401, detail="Неверные учетные данные")
-    return {
-        "username": credentials.username,
-        "role": user["role"],
-        "full_name": user["full_name"],
-        "manager_id": user.get("manager_id"),
-    }
+    return user
 
 
 def verify_admin(user: dict = Depends(verify_credentials)):
@@ -121,12 +68,7 @@ def verify_admin_or_manager(user: dict = Depends(verify_credentials)):
     return user
 
 
-@lru_cache(maxsize=1)
-def get_report_data_service() -> ReportDataService:
-    return ReportDataService()
-
-
-# --- Pydantic Models ---
+# --- Models ---
 
 class CabinetStatus(BaseModel):
     cabinet_number: str
@@ -166,6 +108,16 @@ class UpdateTabsRequest(BaseModel):
     tabs: List[str]
 
 
+class ChangePasswordRequest(BaseModel):
+    old_password: str
+    new_password: str
+
+
+class UpdateReportRequest(BaseModel):
+    checklist: Optional[str] = None
+    photos: Optional[List[str]] = None
+
+
 class UserInfo(BaseModel):
     username: str
     role: str
@@ -174,151 +126,109 @@ class UserInfo(BaseModel):
     tabs: List[str]
 
 
-# --- Routes ---
+# --- Root / Health ---
 
 @app.get("/")
 def read_root():
     return RedirectResponse(url=os.getenv("FRONTEND_APP_URL", "https://localhost:2000"), status_code=307)
 
 
-@app.get("/api/cert")
-def download_cert():
-    cert_path = "/app/certs/hta-root-ca.crt"
-    if not os.path.exists(cert_path):
-        cert_path = "/app/certs/hta-root-ca.pem"
-    if not os.path.exists(cert_path):
-        raise HTTPException(status_code=404, detail="Certificate not found")
-    return FileResponse(cert_path, media_type="application/x-x509-ca-cert", filename="HTA_Root_CA.crt")
-
-
 @app.get("/api/health")
 def health_check():
-    return {"status": "ok", "timestamp": datetime.now().isoformat()}
+    return {"status": "ok", "timestamp": datetime.utcnow().isoformat()}
 
+
+# --- Me ---
 
 @app.get("/api/me")
 def get_current_user(user: dict = Depends(verify_credentials)):
-    tabs = get_user_tabs(user["username"])
     return {
         "username": user["username"],
         "role": user["role"],
         "full_name": user["full_name"],
         "manager_id": user.get("manager_id"),
-        "tabs": tabs,
+        "tabs": user.get("tabs", []),
     }
 
 
-# --- Users CRUD ---
+# --- Password ---
+
+@app.put("/api/me/password")
+def change_password(request: ChangePasswordRequest, user: dict = Depends(verify_credentials)):
+    try:
+        db_service.change_password(user["username"], request.old_password, request.new_password)
+        return {"detail": "Пароль изменен"}
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+# --- Users ---
 
 @app.get("/api/users", response_model=List[UserInfo])
 def list_users(user: dict = Depends(verify_admin)):
-    result = []
-    for username, data in USERS.items():
-        result.append(UserInfo(
-            username=username,
-            role=data["role"],
-            full_name=data["full_name"],
-            manager_id=data.get("manager_id"),
-            tabs=get_user_tabs(username),
-        ))
-    return result
+    return db_service.get_all_users()
 
 
 @app.post("/api/users", response_model=UserInfo)
 def create_user(request: CreateUserRequest, user: dict = Depends(verify_admin)):
-    if request.username in USERS:
-        raise HTTPException(status_code=400, detail="Пользователь уже существует")
     if request.role not in ("admin", "manager", "cleaner"):
         raise HTTPException(status_code=400, detail="Недопустимая роль")
-    USERS[request.username] = {
-        "password": request.password,
-        "role": request.role,
-        "full_name": request.full_name,
-        "manager_id": request.manager_id,
-    }
-    return UserInfo(
-        username=request.username,
-        role=request.role,
-        full_name=request.full_name,
-        manager_id=request.manager_id,
-        tabs=get_user_tabs(request.username),
-    )
+    try:
+        return db_service.create_user(
+            request.username, request.password, request.role,
+            request.full_name, request.manager_id,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 
 @app.delete("/api/users/{username}")
 def delete_user(username: str, user: dict = Depends(verify_admin)):
-    if username == "admin":
-        raise HTTPException(status_code=400, detail="Нельзя удалить администратора")
-    if username == user["username"]:
-        raise HTTPException(status_code=400, detail="Нельзя удалить самого себя")
-    if username not in USERS:
-        raise HTTPException(status_code=404, detail="Пользователь не найден")
-    del USERS[username]
-    USER_TABS.pop(username, None)
-    return {"detail": f"Пользователь {username} удален"}
+    try:
+        db_service.delete_user(username, user["username"])
+        return {"detail": f"Пользователь {username} удален"}
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 
-# --- Tabs settings ---
+# --- User Tabs ---
 
 @app.get("/api/users/{username}/tabs")
-def get_user_tabs_endpoint(username: str, user: dict = Depends(verify_admin)):
-    if username not in USERS:
-        raise HTTPException(status_code=404, detail="Пользователь не найден")
-    tabs = get_user_tabs(username)
-    return {"username": username, "tabs": tabs, "role": USERS[username]["role"]}
+def get_user_tabs(username: str, user: dict = Depends(verify_admin)):
+    try:
+        return db_service.get_user_tabs(username)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
 
 
 @app.put("/api/users/{username}/tabs")
 def set_user_tabs(username: str, request: UpdateTabsRequest, user: dict = Depends(verify_admin)):
-    if username not in USERS:
-        raise HTTPException(status_code=404, detail="Пользователь не найден")
-    USER_TABS[username] = request.tabs
-    return {"username": username, "tabs": request.tabs}
+    try:
+        db_service.set_user_tabs(username, request.tabs)
+        return {"username": username, "tabs": request.tabs}
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
 
 
 # --- Managers ---
 
 @app.get("/api/managers")
 def list_managers(user: dict = Depends(verify_admin_or_manager)):
-    result = []
-    for username, data in USERS.items():
-        if data["role"] == "manager":
-            result.append({
-                "username": username,
-                "full_name": data["full_name"],
-                "manager_id": data.get("manager_id"),
-            })
-    return result
+    return db_service.get_managers()
 
 
-# --- Settings (all tabs) ---
+# --- Settings ---
 
 @app.get("/api/settings")
 def get_all_settings(user: dict = Depends(verify_admin)):
-    users_list = []
-    for username, data in USERS.items():
-        users_list.append({
-            "username": username,
-            "role": data["role"],
-            "full_name": data["full_name"],
-            "tabs": get_user_tabs(username),
-        })
-    return {
-        "users": users_list,
-        "available_tabs": [
-            {"id": k, "label": v["ru"]} for k, v in TAB_LABELS.items()
-        ],
-    }
+    return db_service.get_settings()
 
 
 # --- Cabinets ---
 
 @app.get("/api/cabinets", response_model=List[CabinetStatus])
 def get_cabinets(user: dict = Depends(verify_credentials)):
-    try:
-        return get_report_data_service().get_cabinet_statuses()
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    return db_service.get_cabinet_statuses()
 
 
 # --- Reports ---
@@ -329,57 +239,68 @@ def get_reports(
     cabinet_number: Optional[str] = None,
     date: Optional[str] = None,
 ):
-    try:
-        cleaner_username = user["username"] if user["role"] == "cleaner" else None
-        return get_report_data_service().get_reports(
-            cabinet_number=cabinet_number,
-            date=date,
-            cleaner_username=cleaner_username,
-        )
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    cleaner_username = user["username"] if user["role"] == "cleaner" else None
+    return db_service.get_reports(
+        cabinet_number=cabinet_number,
+        date=date,
+        cleaner_username=cleaner_username,
+    )
+
+
+@app.get("/api/reports/export/csv")
+def export_reports_csv(user: dict = Depends(verify_admin_or_manager)):
+    csv_data = db_service.export_reports_csv()
+    return PlainTextResponse(csv_data, media_type="text/csv", headers={"Content-Disposition": "attachment; filename=reports.csv"})
 
 
 @app.get("/api/reports/{report_id}")
 def get_report_detail(report_id: int, user: dict = Depends(verify_credentials)):
     try:
-        return get_report_data_service().get_report_by_id(report_id)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        return db_service.get_report_by_id(report_id)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
 
 
 @app.post("/api/reports", response_model=Report)
 def create_report(request: CreateReportRequest, user: dict = Depends(verify_credentials)):
+    return db_service.create_report(
+        cleaner_username=user["username"],
+        cabinet_number=request.cabinet_number,
+        checklist=request.checklist,
+        photos=request.photos or [],
+    )
+
+
+@app.put("/api/reports/{report_id}", response_model=Report)
+def update_report(report_id: int, request: UpdateReportRequest, user: dict = Depends(verify_admin)):
     try:
-        return get_report_data_service().create_report(
-            cleaner_username=user["username"],
-            cabinet_number=request.cabinet_number,
-            checklist=request.checklist,
-            photos=request.photos or [],
-        )
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        return db_service.update_report(report_id, request.checklist, request.photos)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
+@app.delete("/api/reports/{report_id}")
+def delete_report(report_id: int, user: dict = Depends(verify_admin)):
+    try:
+        db_service.delete_report(report_id)
+        return {"detail": "Отчет удален"}
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
 
 
 # --- QR ---
 
 @app.post("/api/qr-link")
 def generate_qr_link(request: QRLinkRequest, user: dict = Depends(verify_admin_or_manager)):
-    try:
-        link = get_report_data_service().generate_qr_link(request.cabinet_number)
-        return {"cabinet_number": request.cabinet_number, "link": link}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    link = db_service.generate_qr_link(request.cabinet_number)
+    return {"cabinet_number": request.cabinet_number, "link": link}
 
 
 # --- Stats ---
 
 @app.get("/api/stats")
 def get_statistics(user: dict = Depends(verify_admin_or_manager)):
-    try:
-        return get_report_data_service().get_statistics()
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    return db_service.get_statistics()
 
 
 if __name__ == "__main__":

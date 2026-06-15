@@ -184,6 +184,19 @@ class ApiService {
         const response = await apiClient.get<SettingsData>('/settings');
         return response.data;
     }
+
+    async deleteReport(id: number): Promise<void> {
+        await apiClient.delete(`/reports/${id}`);
+    }
+
+    async updateReport(id: number, data: { checklist?: string; photos?: string[] }): Promise<Report> {
+        const response = await apiClient.put<Report>(`/reports/${id}`, data);
+        return response.data;
+    }
+
+    async changePassword(oldPassword: string, newPassword: string): Promise<void> {
+        await apiClient.put('/me/password', { old_password: oldPassword, new_password: newPassword });
+    }
 }
 
 export const apiService = new ApiService();
