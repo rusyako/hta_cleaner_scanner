@@ -122,10 +122,11 @@ class ApiService {
         return response.data;
     }
 
-    async getReports(cabinetNumber?: string, date?: string): Promise<Report[]> {
+    async getReports(cabinetNumber?: string, date?: string, cleanerUsername?: string): Promise<Report[]> {
         const params: any = {};
         if (cabinetNumber) params.cabinet_number = cabinetNumber;
         if (date) params.date = date;
+        if (cleanerUsername) params.cleaner_username = cleanerUsername;
         const response = await apiClient.get<Report[]>('/reports', { params });
         return response.data;
     }
@@ -196,6 +197,16 @@ class ApiService {
 
     async changePassword(oldPassword: string, newPassword: string): Promise<void> {
         await apiClient.put('/me/password', { old_password: oldPassword, new_password: newPassword });
+    }
+
+    async getCleaners(): Promise<any[]> {
+        const response = await apiClient.get('/cleaners');
+        return response.data;
+    }
+
+    async getAnalytics(): Promise<any> {
+        const response = await apiClient.get('/analytics');
+        return response.data;
     }
 }
 

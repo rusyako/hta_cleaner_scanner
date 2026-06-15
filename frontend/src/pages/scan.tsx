@@ -139,23 +139,28 @@ export default function ScanPage() {
         }
 
         try {
-            const convertedFiles = await Promise.all(
-                selectedFiles.map(
-                    (file) =>
-                        new Promise<string>((resolve, reject) => {
-                            const reader = new FileReader();
-                            reader.onload = () => resolve(String(reader.result));
-                            reader.onerror = () => reject(new Error('Не удалось прочитать фото'));
-                            reader.readAsDataURL(file);
-                        })
-                )
+            const uploadedUrls = await Promise.all(
+                selectedFiles.map(async (file) => {
+                    const formData = new FormData();
+                    formData.append('file', file);
+                    const token = btoa(
+                        `${localStorage.getItem('admin_username')}:${localStorage.getItem('admin_password')}`,
+                    );
+                    const res = await fetch(
+                        `${process.env.NEXT_PUBLIC_API_URL || '/api'}/upload`,
+                        { method: 'POST', headers: { Authorization: `Basic ${token}` }, body: formData },
+                    );
+                    if (!res.ok) throw new Error('Upload failed');
+                    const data = await res.json();
+                    return data.url;
+                }),
             );
 
-            setPhotos((prev) => [...prev, ...convertedFiles]);
+            setPhotos((prev) => [...prev, ...uploadedUrls]);
             setError('');
-            toast.success(`Фото добавлено: ${convertedFiles.length}`);
+            toast.success(`Фото добавлено: ${uploadedUrls.length}`);
         } catch {
-            setError('Не удалось обработать фото');
+            setError('Не удалось загрузить фото');
         } finally {
             event.target.value = '';
         }

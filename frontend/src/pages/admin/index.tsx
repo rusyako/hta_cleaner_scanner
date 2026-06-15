@@ -18,6 +18,7 @@ import {
     QrCodeIcon,
     ArrowPathIcon,
     PhotoIcon,
+    UserGroupIcon,
 } from '@heroicons/react/24/outline';
 import Link from 'next/link';
 import { apiService, CabinetStatus, Report, Statistics } from '@/services/api.service';
@@ -30,6 +31,7 @@ export default function AdminDashboard() {
     const [stats, setStats] = useState<Statistics | null>(null);
     const [reports, setReports] = useState<Report[]>([]);
     const [cabinets, setCabinets] = useState<CabinetStatus[]>([]);
+    const [analytics, setAnalytics] = useState<any>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState('');
 
@@ -53,14 +55,16 @@ export default function AdminDashboard() {
 
     const loadDashboard = async () => {
         try {
-            const [statsData, reportsData, cabinetsData] = await Promise.all([
+            const [statsData, reportsData, cabinetsData, analyticsData] = await Promise.all([
                 apiService.getStatistics(),
                 apiService.getReports(),
                 apiService.getCabinets(),
+                apiService.getAnalytics().catch(() => null),
             ]);
             setStats(statsData);
             setReports(reportsData);
             setCabinets(cabinetsData);
+            setAnalytics(analyticsData);
         } catch (err: any) {
             setError(err.response?.data?.detail || 'Ошибка загрузки статистики');
         } finally {
@@ -276,6 +280,46 @@ export default function AdminDashboard() {
                         </CardContent>
                     </Card>
                 </div>
+
+                {analytics && (
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <Card>
+                        <CardHeader><CardTitle>Топ клинеров сегодня</CardTitle></CardHeader>
+                        <CardContent className="space-y-2">
+                            {analytics.top_cleaners?.length === 0 && <Alert variant="info">Нет уборок сегодня.</Alert>}
+                            {analytics.top_cleaners?.map((c: any, i: number) => (
+                                <div key={c.username} className="flex items-center justify-between rounded-lg bg-gray-50 dark:bg-gray-800 p-3">
+                                    <div className="flex items-center gap-3">
+                                        <span className="text-sm font-bold text-gray-400 w-6">{i + 1}</span>
+                                        <span className="font-medium text-gray-900 dark:text-white">{c.full_name}</span>
+                                    </div>
+                                    <Badge variant="success">{c.count} уборок</Badge>
+                                </div>
+                            ))}
+                        </CardContent>
+                    </Card>
+
+                    <Card>
+                        <CardHeader><CardTitle>Состояние кабинетов</CardTitle></CardHeader>
+                        <CardContent>
+                            <div className="grid grid-cols-3 gap-3 text-center">
+                                <div className="rounded-lg bg-red-50 dark:bg-red-900/20 p-3">
+                                    <p className="text-2xl font-bold text-red-600">{analytics.summary?.red ?? 0}</p>
+                                    <p className="text-xs text-red-500">Критичные</p>
+                                </div>
+                                <div className="rounded-lg bg-yellow-50 dark:bg-yellow-900/20 p-3">
+                                    <p className="text-2xl font-bold text-yellow-600">{analytics.summary?.yellow ?? 0}</p>
+                                    <p className="text-xs text-yellow-500">В плане</p>
+                                </div>
+                                <div className="rounded-lg bg-green-50 dark:bg-green-900/20 p-3">
+                                    <p className="text-2xl font-bold text-green-600">{analytics.summary?.green ?? 0}</p>
+                                    <p className="text-xs text-green-500">Чистые</p>
+                                </div>
+                            </div>
+                        </CardContent>
+                    </Card>
+                </div>
+                )}
             </div>
         </MainLayout>
     );

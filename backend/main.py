@@ -1,7 +1,8 @@
-from fastapi import FastAPI, HTTPException, Depends, Query
+from fastapi import FastAPI, HTTPException, Depends, Query, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse, PlainTextResponse
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from typing import List, Optional
 from datetime import datetime
@@ -15,6 +16,10 @@ from app.services.db_service import DatabaseService
 load_dotenv()
 
 app = FastAPI(title="HTA Cleaner Admin API", version="3.0.0")
+
+UPLOAD_DIR = os.path.join(os.path.dirname(__file__), "uploads")
+os.makedirs(UPLOAD_DIR, exist_ok=True)
+app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
 
 
 def get_cors_origins() -> list[str]:
@@ -231,6 +236,29 @@ def get_cabinets(user: dict = Depends(verify_credentials)):
     return db_service.get_cabinet_statuses()
 
 
+# --- Upload ---
+
+@app.post("/api/upload")
+async def upload_file(file: UploadFile = File(...), user: dict = Depends(verify_credentials)):
+    contents = await file.read()
+    url = db_service.save_upload(UPLOAD_DIR, file.filename or "photo.jpg", contents)
+    return {"url": url}
+
+
+# --- Cleaners ---
+
+@app.get("/api/cleaners")
+def list_cleaners(user: dict = Depends(verify_admin_or_manager)):
+    return db_service.get_cleaners()
+
+
+# --- Analytics ---
+
+@app.get("/api/analytics")
+def get_analytics(user: dict = Depends(verify_admin_or_manager)):
+    return db_service.get_analytics()
+
+
 # --- Reports ---
 
 @app.get("/api/reports", response_model=List[Report])
@@ -238,12 +266,17 @@ def get_reports(
     user: dict = Depends(verify_credentials),
     cabinet_number: Optional[str] = None,
     date: Optional[str] = None,
+    cleaner_username: Optional[str] = None,
 ):
-    cleaner_username = user["username"] if user["role"] == "cleaner" else None
+    target_cleaner = None
+    if cleaner_username and user["role"] in ("admin", "manager"):
+        target_cleaner = cleaner_username
+    elif user["role"] == "cleaner":
+        target_cleaner = user["username"]
     return db_service.get_reports(
         cabinet_number=cabinet_number,
         date=date,
-        cleaner_username=cleaner_username,
+        cleaner_username=target_cleaner,
     )
 
 

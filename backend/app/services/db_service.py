@@ -7,6 +7,7 @@ from typing import Any, Dict, List, Optional
 
 import bcrypt
 from sqlalchemy.orm import Session
+from sqlalchemy import String as SAString
 
 from app.models import Base, engine, User, UserTab, Cabinet, Report
 
@@ -17,8 +18,8 @@ DEFAULT_USERS = [
 ]
 
 DEFAULT_TABS = {
-    "admin":   ["dashboard", "cabinets", "reports", "qr-generator", "managers", "users", "settings"],
-    "manager": ["dashboard", "cabinets", "reports", "qr-generator"],
+    "admin":   ["dashboard", "cabinets", "reports", "qr-generator", "cleaners", "managers", "users", "settings"],
+    "manager": ["dashboard", "cabinets", "reports", "qr-generator", "cleaners"],
     "cleaner": ["scan", "my-reports"],
 }
 
@@ -224,6 +225,7 @@ class DatabaseService:
                 {"id": "cabinets",     "label": "Кабинеты"},
                 {"id": "reports",      "label": "Отчеты"},
                 {"id": "qr-generator", "label": "QR-коды"},
+                {"id": "cleaners",     "label": "Клинеры"},
                 {"id": "managers",     "label": "Руководители"},
                 {"id": "users",        "label": "Пользователи"},
                 {"id": "settings",     "label": "Настройки"},
@@ -248,7 +250,12 @@ class DatabaseService:
                 )
                 if last_report:
                     hours_ago = (datetime.utcnow() - last_report.timestamp).total_seconds() / 3600
-                    status = "green" if hours_ago < 12 else "yellow"
+                    if hours_ago < 12:
+                        status = "green"
+                    elif hours_ago < 48:
+                        status = "yellow"
+                    else:
+                        status = "red"
                     result.append({
                         "cabinet_number": c.cabinet_number,
                         "status": status,
@@ -258,7 +265,7 @@ class DatabaseService:
                 else:
                     result.append({
                         "cabinet_number": c.cabinet_number,
-                        "status": "yellow",
+                        "status": "red",
                         "last_cleaned": None,
                         "cleaner_name": None,
                     })
@@ -282,7 +289,7 @@ class DatabaseService:
             if cabinet_number:
                 q = q.filter(Report.cabinet_number == cabinet_number)
             if date:
-                q = q.filter(Report.timestamp.cast(String).startswith(date))
+                q = q.filter(Report.timestamp.cast(SAString).startswith(date))
             reports = q.all()
             return [self._report_to_dict(r) for r in reports]
         finally:
@@ -349,7 +356,7 @@ class DatabaseService:
             total_reports = db.query(Report).count()
             today_str = datetime.utcnow().strftime("%Y-%m-%d")
             cleanings_today = db.query(Report).filter(
-                Report.timestamp.cast(String).startswith(today_str)
+                Report.timestamp.cast(SAString).startswith(today_str)
             ).count()
             total_cabinets = db.query(Cabinet).count()
             return {
@@ -397,3 +404,80 @@ class DatabaseService:
             "checklist": report.checklist,
             "photos": photos_list,
         }
+
+    # --- Cleaners list ---
+
+    def get_cleaners(self) -> List[Dict[str, Any]]:
+        db = self._get_session()
+        try:
+            cleaners = db.query(User).filter(User.role == "cleaner").all()
+            result = []
+            for c in cleaners:
+                report_count = db.query(Report).filter(Report.cleaner_username == c.username).count()
+                today = datetime.utcnow().strftime("%Y-%m-%d")
+                today_count = db.query(Report).filter(
+                    Report.cleaner_username == c.username,
+                    Report.timestamp.cast(SAString).startswith(today),
+                ).count()
+                result.append({
+                    "username": c.username,
+                    "full_name": c.full_name,
+                    "total_reports": report_count,
+                    "today_reports": today_count,
+                })
+            return sorted(result, key=lambda x: x["total_reports"], reverse=True)
+        finally:
+            db.close()
+
+    # --- Analytics ---
+
+    def get_analytics(self) -> Dict[str, Any]:
+        db = self._get_session()
+        try:
+            today_str = datetime.utcnow().strftime("%Y-%m-%d")
+
+            # Top cleaners
+            top_cleaners = []
+            cleaners = db.query(User).filter(User.role == "cleaner").all()
+            for c in cleaners:
+                count = db.query(Report).filter(
+                    Report.cleaner_username == c.username,
+                    Report.timestamp.cast(SAString).startswith(today_str),
+                ).count()
+                if count > 0:
+                    top_cleaners.append({"username": c.username, "full_name": c.full_name, "count": count})
+            top_cleaners.sort(key=lambda x: x["count"], reverse=True)
+            top_cleaners = top_cleaners[:5]
+
+            # Problem cabinets (red status)
+            cabinets_status = self.get_cabinet_statuses()
+            red_cabinets = [c for c in cabinets_status if c["status"] == "red"]
+            yellow_cabinets = [c for c in cabinets_status if c["status"] == "yellow"]
+            green_cabinets = [c for c in cabinets_status if c["status"] == "green"]
+
+            return {
+                "top_cleaners": top_cleaners,
+                "red_cabinets": red_cabinets[:5],
+                "summary": {
+                    "red": len(red_cabinets),
+                    "yellow": len(yellow_cabinets),
+                    "green": len(green_cabinets),
+                    "total": len(cabinets_status),
+                    "cleanings_today": sum(1 for c in cabinets_status if c["status"] == "green"),
+                },
+            }
+        finally:
+            db.close()
+
+    # -- File upload ---
+
+    @staticmethod
+    def save_upload(upload_dir: str, filename: str, content: bytes) -> str:
+        import uuid
+        ext = filename.rsplit(".", 1)[-1] if "." in filename else "jpg"
+        safe_name = f"{uuid.uuid4().hex}.{ext}"
+        os.makedirs(upload_dir, exist_ok=True)
+        filepath = os.path.join(upload_dir, safe_name)
+        with open(filepath, "wb") as f:
+            f.write(content)
+        return f"/uploads/{safe_name}"
