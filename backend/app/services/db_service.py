@@ -18,8 +18,8 @@ DEFAULT_USERS = [
 ]
 
 DEFAULT_TABS = {
-    "admin":   ["dashboard", "cabinets", "reports", "qr-generator", "__divider__", "cleaners", "managers", "users", "settings"],
-    "manager": ["dashboard", "cabinets", "reports", "qr-generator", "__divider__", "cleaners"],
+    "admin":   ["dashboard", "cabinets", "reports", "qr-generator", "managers", "users", "settings", "cleaners"],
+    "manager": ["dashboard", "cabinets", "reports", "qr-generator", "cleaners"],
     "cleaner": ["scan", "my-reports"],
 }
 
@@ -225,11 +225,10 @@ class DatabaseService:
                 {"id": "cabinets",     "label": "Кабинеты"},
                 {"id": "reports",      "label": "Отчеты"},
                 {"id": "qr-generator", "label": "QR-коды"},
-                {"id": "__divider__",  "label": "——— Управление ———"},
-                {"id": "cleaners",     "label": "Клинеры"},
                 {"id": "managers",     "label": "Руководители"},
                 {"id": "users",        "label": "Пользователи"},
                 {"id": "settings",     "label": "Настройки"},
+                {"id": "cleaners",     "label": "Клинеры"},
                 {"id": "scan",         "label": "Скан"},
                 {"id": "my-reports",   "label": "Мои отчеты"},
             ],

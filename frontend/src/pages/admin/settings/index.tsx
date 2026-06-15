@@ -109,7 +109,7 @@ export default function SettingsPage() {
                         </CardHeader>
                         <CardContent>
                             <div className="flex flex-wrap gap-3">
-                                {settings?.available_tabs.filter(t => t.id !== '__divider__').map((tab) => {
+                                {settings?.available_tabs.map((tab) => {
                                     const enabled = u.tabs.includes(tab.id);
                                     return (
                                         <button

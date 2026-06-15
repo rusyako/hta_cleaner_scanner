@@ -71,19 +71,10 @@ export default function Sidebar() {
                 </div>
                 <nav className="flex-1 px-4 py-4 space-y-1 overflow-y-auto">
                     {tabs.map((tab) => {
-                        if (tab === '__divider__') {
-                            return (
-                                <div key="divider" className="pt-4 pb-2">
-                                    <p className="px-4 text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">
-                                        Управление
-                                    </p>
-                                </div>
-                            );
-                        }
                         const Icon = iconMap[tab] ?? HomeIcon;
                         const label = labelMap[tab] ?? tab;
                         const href = hrefMap[tab] ?? `/${tab}`;
-                        const isActive = router.pathname === href || (tab === 'dashboard' && router.pathname === '/admin');
+                        const isActive = router.pathname === href || (tab === 'dashboard' && (router.pathname === '/admin' || router.pathname === '/manager'));
                         return (
                             <Link
                                 key={tab}
