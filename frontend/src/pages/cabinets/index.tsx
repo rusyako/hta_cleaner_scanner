@@ -42,6 +42,7 @@ export default function CabinetsPage() {
     const [showAdd, setShowAdd] = useState(false);
     const [newCabinet, setNewCabinet] = useState('');
     const [addError, setAddError] = useState('');
+    const [addLoading, setAddLoading] = useState(false);
 
     useEffect(() => {
         if (isAuthLoading) return;
@@ -64,6 +65,7 @@ export default function CabinetsPage() {
     const handleAdd = async () => {
         if (!newCabinet.trim()) return;
         setAddError('');
+        setAddLoading(true);
         try {
             await apiService.createCabinet(newCabinet.trim());
             await apiService.generateCabinetQr(newCabinet.trim());
@@ -72,6 +74,8 @@ export default function CabinetsPage() {
             await load();
         } catch (err: any) {
             setAddError(err.response?.data?.detail || 'Ошибка');
+        } finally {
+            setAddLoading(false);
         }
     };
 
@@ -194,17 +198,29 @@ export default function CabinetsPage() {
                     ))}
                 </div>
 
-                <Modal isOpen={showAdd} onClose={() => { setShowAdd(false); setAddError(''); }} title="Добавить кабинет + QR-код" size="sm">
+                <Modal isOpen={showAdd} onClose={() => { if (!addLoading) { setShowAdd(false); setAddError(''); } }} title="Добавить кабинет + QR-код" size="sm">
                     <div className="space-y-4">
                         <Input
                             value={newCabinet}
                             onChange={(e) => setNewCabinet(e.target.value)}
                             placeholder="Номер кабинета, например 101"
+                            disabled={addLoading}
                         />
-                        {addError && <Alert variant="error">{addError}</Alert>}
+                        {addLoading && (
+                            <div className="flex flex-col items-center gap-3 py-4">
+                                <svg className="animate-spin h-8 w-8 text-primary-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                                </svg>
+                                <p className="text-sm text-gray-500 dark:text-gray-400">Генерация QR-кода...</p>
+                            </div>
+                        )}
+                        {addError && !addLoading && <Alert variant="error">{addError}</Alert>}
                         <div className="flex justify-end gap-3">
-                            <Button variant="outline" onClick={() => { setShowAdd(false); setAddError(''); }}>Отмена</Button>
-                            <Button onClick={handleAdd}>Добавить</Button>
+                            <Button variant="outline" onClick={() => { setShowAdd(false); setAddError(''); }} disabled={addLoading}>Отмена</Button>
+                            <Button onClick={handleAdd} disabled={addLoading}>
+                                {addLoading ? 'Создание...' : 'Добавить'}
+                            </Button>
                         </div>
                     </div>
                 </Modal>
