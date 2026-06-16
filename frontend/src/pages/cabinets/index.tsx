@@ -133,7 +133,7 @@ export default function CabinetsPage() {
                                             {statusLabels[cab.status]}
                                         </Badge>
                                     </div>
-                                    {canEdit && (
+                                    {user?.role === 'admin' && (
                                         <Button size="sm" variant="ghost" onClick={() => handleDelete(cab.cabinet_number)}>
                                             <TrashIcon className="h-4 w-4 text-red-500" />
                                         </Button>
