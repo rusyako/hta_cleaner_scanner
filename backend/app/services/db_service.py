@@ -23,12 +23,6 @@ DEFAULT_TABS = {
     "cleaner": ["scan", "my-reports"],
 }
 
-DEFAULT_CABINETS = [
-    "101", "102", "103", "104", "105",
-    "201", "202", "203", "204", "205",
-    "301", "302", "303", "304", "305",
-]
-
 
 class DatabaseService:
 
@@ -42,7 +36,6 @@ class DatabaseService:
         db = self._get_session()
         try:
             self._seed_users(db)
-            self._seed_cabinets(db)
         finally:
             db.close()
         self._initialized = True
@@ -72,11 +65,7 @@ class DatabaseService:
                 db.add(UserTab(user_id=user.id, tab_id=tab_id))
         db.commit()
 
-    def _seed_cabinets(self, db: Session):
-        for number in DEFAULT_CABINETS:
-            if not db.query(Cabinet).filter(Cabinet.cabinet_number == number).first():
-                db.add(Cabinet(cabinet_number=number))
-        db.commit()
+
 
     # --- Auth ---
 
