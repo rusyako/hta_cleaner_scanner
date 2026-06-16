@@ -66,6 +66,7 @@ export default function CabinetsPage() {
         setAddError('');
         try {
             await apiService.createCabinet(newCabinet.trim());
+            await apiService.generateCabinetQr(newCabinet.trim());
             setNewCabinet('');
             setShowAdd(false);
             await load();
@@ -160,14 +161,27 @@ export default function CabinetsPage() {
                                                 alt={`QR ${cab.cabinet_number}`}
                                                 className="w-20 h-20 rounded-lg border dark:border-gray-600"
                                             />
-                                            <div className="text-xs text-gray-500">
-                                                <p className="font-medium text-gray-700 dark:text-gray-300 mb-1">QR-код</p>
+                                            <div className="flex flex-col gap-1.5 text-xs">
+                                                <a
+                                                    href={qrSrc(cab.qr_code)}
+                                                    download
+                                                    className="text-primary-600 hover:underline font-medium"
+                                                >
+                                                    Скачать
+                                                </a>
                                                 <button
                                                     type="button"
-                                                    className="text-primary-600 hover:underline"
+                                                    onClick={() => window.open(qrSrc(cab.qr_code), '_blank')}
+                                                    className="text-gray-600 hover:underline text-left"
+                                                >
+                                                    Распечатать
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    className="text-gray-400 hover:underline text-left"
                                                     onClick={() => handleQr(cab.cabinet_number)}
                                                 >
-                                                    Обновить
+                                                    Перегенерировать
                                                 </button>
                                             </div>
                                         </div>
@@ -187,7 +201,7 @@ export default function CabinetsPage() {
                     ))}
                 </div>
 
-                <Modal isOpen={showAdd} onClose={() => { setShowAdd(false); setAddError(''); }} title="Добавить кабинет" size="sm">
+                <Modal isOpen={showAdd} onClose={() => { setShowAdd(false); setAddError(''); }} title="Добавить кабинет + QR-код" size="sm">
                     <div className="space-y-4">
                         <Input
                             value={newCabinet}
