@@ -12,6 +12,15 @@ import { apiService, CabinetStatus } from '@/services/api.service';
 import { useRouter } from 'next/router';
 import { useAuth } from '@/contexts/AuthContext';
 
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || '/api';
+const UPLOADS_BASE = API_BASE === '/api' ? '' : API_BASE.replace(/\/api$/, '');
+
+function qrSrc(path: string | null) {
+    if (!path) return '';
+    if (UPLOADS_BASE) return `${UPLOADS_BASE}${path}`;
+    return path;
+}
+
 const statusLabels: Record<string, string> = {
     green: 'Чистый',
     yellow: 'В плане',
@@ -147,7 +156,7 @@ export default function CabinetsPage() {
                                     {cab.qr_code ? (
                                         <div className="flex items-center gap-3">
                                             <img
-                                                src={cab.qr_code}
+                                                src={qrSrc(cab.qr_code)}
                                                 alt={`QR ${cab.cabinet_number}`}
                                                 className="w-20 h-20 rounded-lg border dark:border-gray-600"
                                             />
