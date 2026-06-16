@@ -80,6 +80,7 @@ class CabinetStatus(BaseModel):
     status: str
     last_cleaned: Optional[str] = None
     cleaner_name: Optional[str] = None
+    qr_code: Optional[str] = None
 
 
 class Report(BaseModel):
@@ -234,6 +235,31 @@ def get_all_settings(user: dict = Depends(verify_admin)):
 @app.get("/api/cabinets", response_model=List[CabinetStatus])
 def get_cabinets(user: dict = Depends(verify_credentials)):
     return db_service.get_cabinet_statuses()
+
+
+@app.post("/api/cabinets")
+def create_cabinet(request: QRLinkRequest, user: dict = Depends(verify_admin_or_manager)):
+    try:
+        return db_service.create_cabinet(request.cabinet_number)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.post("/api/cabinets/{cabinet_number}/qr")
+def generate_cabinet_qr(cabinet_number: str, user: dict = Depends(verify_admin_or_manager)):
+    try:
+        return db_service.generate_cabinet_qr(cabinet_number, UPLOAD_DIR)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.delete("/api/cabinets/{cabinet_number}")
+def delete_cabinet(cabinet_number: str, user: dict = Depends(verify_admin)):
+    try:
+        db_service.delete_cabinet(cabinet_number)
+        return {"detail": "Кабинет удален"}
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 
 # --- Upload ---

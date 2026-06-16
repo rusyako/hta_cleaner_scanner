@@ -32,6 +32,7 @@ class DatabaseService:
     def init_db(self):
         if self._initialized:
             return
+        Base.metadata.drop_all(bind=engine)
         Base.metadata.create_all(bind=engine)
         db = self._get_session()
         try:
@@ -250,6 +251,7 @@ class DatabaseService:
                         "status": status,
                         "last_cleaned": last_report.timestamp.isoformat(),
                         "cleaner_name": last_report.cleaner_name or last_report.cleaner_username,
+                        "qr_code": c.qr_code,
                     })
                 else:
                     result.append({
@@ -257,8 +259,56 @@ class DatabaseService:
                         "status": "red",
                         "last_cleaned": None,
                         "cleaner_name": None,
+                        "qr_code": c.qr_code,
                     })
             return result
+        finally:
+            db.close()
+
+    # --- Cabinet CRUD ---
+
+    def create_cabinet(self, cabinet_number: str) -> Dict[str, Any]:
+        db = self._get_session()
+        try:
+            if db.query(Cabinet).filter(Cabinet.cabinet_number == cabinet_number).first():
+                raise ValueError("Кабинет уже существует")
+            cab = Cabinet(cabinet_number=cabinet_number.strip())
+            db.add(cab)
+            db.commit()
+            db.refresh(cab)
+            return {"cabinet_number": cab.cabinet_number, "qr_code": cab.qr_code}
+        finally:
+            db.close()
+
+    def generate_cabinet_qr(self, cabinet_number: str, upload_dir: str) -> Dict[str, Any]:
+        import qrcode
+        import uuid
+        db = self._get_session()
+        try:
+            cab = db.query(Cabinet).filter(Cabinet.cabinet_number == cabinet_number).first()
+            if not cab:
+                raise ValueError("Кабинет не найден")
+            app_url = os.getenv("FRONTEND_APP_URL", "https://localhost:2000").rstrip("/")
+            link = f"{app_url}/scan?cabinet={cabinet_number}"
+            img = qrcode.make(link)
+            filename = f"qr_{cabinet_number}_{uuid.uuid4().hex[:8]}.png"
+            filepath = os.path.join(upload_dir, filename)
+            img.save(filepath)
+            qr_url = f"/uploads/{filename}"
+            cab.qr_code = qr_url
+            db.commit()
+            return {"cabinet_number": cabinet_number, "qr_code": qr_url, "link": link}
+        finally:
+            db.close()
+
+    def delete_cabinet(self, cabinet_number: str):
+        db = self._get_session()
+        try:
+            cab = db.query(Cabinet).filter(Cabinet.cabinet_number == cabinet_number).first()
+            if not cab:
+                raise ValueError("Кабинет не найден")
+            db.delete(cab)
+            db.commit()
         finally:
             db.close()
 

@@ -38,6 +38,7 @@ class Cabinet(Base):
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     cabinet_number = Column(String(20), unique=True, nullable=False, index=True)
+    qr_code = Column(String(255), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
 

@@ -24,9 +24,10 @@ apiClient.interceptors.request.use((config) => {
 
 export interface CabinetStatus {
     cabinet_number: string;
-    status: 'green' | 'yellow';
+    status: 'green' | 'yellow' | 'red';
     last_cleaned: string | null;
     cleaner_name: string | null;
+    qr_code: string | null;
 }
 
 export interface Report {
@@ -207,6 +208,20 @@ class ApiService {
     async getAnalytics(): Promise<any> {
         const response = await apiClient.get('/analytics');
         return response.data;
+    }
+
+    async createCabinet(cabinetNumber: string): Promise<any> {
+        const response = await apiClient.post('/cabinets', { cabinet_number: cabinetNumber });
+        return response.data;
+    }
+
+    async generateCabinetQr(cabinetNumber: string): Promise<any> {
+        const response = await apiClient.post(`/cabinets/${cabinetNumber}/qr`);
+        return response.data;
+    }
+
+    async deleteCabinet(cabinetNumber: string): Promise<void> {
+        await apiClient.delete(`/cabinets/${cabinetNumber}`);
     }
 }
 
