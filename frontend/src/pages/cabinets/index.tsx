@@ -176,13 +176,6 @@ export default function CabinetsPage() {
                                                 >
                                                     Распечатать
                                                 </button>
-                                                <button
-                                                    type="button"
-                                                    className="text-gray-400 hover:underline text-left"
-                                                    onClick={() => handleQr(cab.cabinet_number)}
-                                                >
-                                                    Перегенерировать
-                                                </button>
                                             </div>
                                         </div>
                                     ) : (

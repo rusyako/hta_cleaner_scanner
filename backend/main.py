@@ -254,7 +254,7 @@ def generate_cabinet_qr(cabinet_number: str, user: dict = Depends(verify_admin_o
 
 
 @app.delete("/api/cabinets/{cabinet_number}")
-def delete_cabinet(cabinet_number: str, user: dict = Depends(verify_admin)):
+def delete_cabinet(cabinet_number: str, user: dict = Depends(verify_admin_or_manager)):
     try:
         db_service.delete_cabinet(cabinet_number)
         return {"detail": "Кабинет удален"}
